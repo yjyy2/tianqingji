@@ -3,7 +3,24 @@
 // ============================
 const $=s=>document.querySelector(s);
 const $$=s=>document.querySelectorAll(s);
-const LS=localStorage;
+
+// 修复：防止无痕模式/本地测试时报错导致全局崩溃黑屏
+let LS;
+try {
+  LS = window.localStorage;
+  LS.getItem('tq_test');
+} catch(e) {
+  LS = {
+    _data: {},
+    getItem: function(k) { return this._data[k] || null; },
+    setItem: function(k,v) { this._data[k] = v; },
+    removeItem: function(k) { delete this._data[k]; },
+    clear: function() { this._data = {}; },
+    key: function(i) { return Object.keys(this._data)[i] || null; },
+    get length() { return Object.keys(this._data).length; }
+  };
+}
+
 function lsGet(k,d=null){
   try{let v=LS.getItem(k);return v?JSON.parse(v):d;}
   catch(e){return d;}
@@ -11,6 +28,7 @@ function lsGet(k,d=null){
 function lsSet(k,v){
   try{LS.setItem(k,JSON.stringify(v));}catch(e){}
 }
+
 
 // Toast 提示
 function showToast(msg,dur=1500){
