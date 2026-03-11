@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="天晴机">
+<meta name="theme-color" content="#ffffff">
+<title>天晴机</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Noto+Serif+SC:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 开屏动画 -->
+<div id="splash">
+  <div id="splash-title"></div>
+  <div id="splash-sub">希望你的心情永远天晴</div>
+</div>
+
+<!-- 壁纸层 -->
+<div id="wallpaper"></div>
+
+<!-- 灵动岛通知 -->
+<div id="dynamic-island">
+  <div class="di-avatar"><img src="" alt=""></div>
+  <div class="di-content">
+    <div class="di-name"></div>
+    <div class="di-msg"></div>
+  </div>
+</div>
+
+<!-- 桌面 -->
+<div id="desktop">
+  <div id="pages-wrap">
+
+    <!-- ===== 第一页 ===== -->
+    <div class="page" id="page1">
+      <!-- 时钟 -->
+      <div class="p1-clock">
+        <div class="time" id="clock-time">00:00</div>
+        <div class="date" id="clock-date">载入中</div>
+      </div>
+
+      <!-- 圆形相框 -->
+      <div class="p1-photo-top">
+        <div class="circle-frame glass" id="p1-frame-top" data-key="p1-frame-top">
+          <span class="placeholder">✦</span>
+        </div>
+      </div>
+
+      <!-- 可编辑字条 -->
+      <div class="p1-editable" id="p1-editable">
+        <span class="text-display" id="p1-text-show">风替我吻你</span>
+        <div class="edit-box hidden" id="p1-edit-box">
+          <input type="text" id="p1-edit-input" maxlength="30">
+          <button class="save-btn" onclick="saveEditable('p1')">✓</button>
+          <button class="cancel-btn" onclick="cancelEditable('p1')">✕</button>
+        </div>
+      </div>
+
+      <!-- 底部：左侧App + 右侧相框 -->
+      <div class="p1-bottom">
+        <div class="p1-apps-grid">
+          <div class="app-item" data-app="music" onclick="openApp('music')">
+            <div class="app-icon">♪</div>
+            <div class="app-name">音乐</div>
+          </div>
+          <div class="app-item" data-app="mail" onclick="openApp('mail')">
+            <div class="app-icon">✉</div>
+            <div class="app-name">邮件</div>
+          </div>
+          <div class="app-item" data-app="diary" onclick="openApp('diary')">
+            <div class="app-icon">❣</div>
+            <div class="app-name">日记</div>
+          </div>
+          <div class="app-item" data-app="weather" onclick="openApp('weather')">
+            <div class="app-icon">☾</div>
+            <div class="app-name">天气</div>
+          </div>
+        </div>
+        <div class="circle-frame glass p1-frame-right" id="p1-frame-right" data-key="p1-frame-right">
+          <span class="placeholder">✧</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 第二页 ===== -->
+    <div class="page" id="page2">
+      <!-- 顶部：相框 + 气泡 -->
+      <div class="p2-top">
+        <div class="circle-frame glass" id="p2-frame-top" data-key="p2-frame-top">
+          <span class="placeholder">❀</span>
+        </div>
+        <div class="p2-bubble glass" id="p2-bubble">
+          <span id="p2-bubble-show">我等待着你，像寒冬的溪流，期望着重新奔流</span>
+          <div class="edit-box hidden" id="p2-bubble-edit">
+            <textarea id="p2-bubble-input" rows="3" style="width:100%;background:transparent;border:none;resize:none;font-size:12px;color:var(--txt-sec);font-family:var(--font-cur);font-style:italic;"></textarea>
+            <div class="edit-actions">
+              <button class="save-btn" onclick="saveEditable('p2-bubble')">保存</button>
+              <button class="cancel-btn" onclick="cancelEditable('p2-bubble')">取消</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 长条编辑框 -->
+      <div class="p2-long-edit glass" id="p2-long-edit">
+        <div class="long-text" id="p2-long-show">记录此刻的心情…</div>
+        <div class="edit-box hidden" id="p2-long-editbox">
+          <textarea id="p2-long-input" rows="2" style="width:100%;background:transparent;border:none;resize:none;font-size:12px;color:var(--txt-sec);text-align:center;"></textarea>
+          <div class="edit-actions">
+            <button class="save-btn" onclick="saveEditable('p2-long')">保存</button>
+            <button class="cancel-btn" onclick="cancelEditable('p2-long')">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部：左侧App + 右侧拍立得 -->
+      <div class="p2-bottom">
+        <div class="p2-apps-grid">
+          <div class="app-item" data-app="playwhat" onclick="openApp('playwhat')">
+            <div class="app-icon">ꕥ</div>
+            <div class="app-name">玩你所想</div>
+          </div>
+          <div class="app-item" data-app="calendar" onclick="openApp('calendar')">
+            <div class="app-icon">⌘</div>
+            <div class="app-name">日历</div>
+          </div>
+          <div class="app-item" data-app="fanfic" onclick="openApp('fanfic')">
+            <div class="app-icon">❈</div>
+            <div class="app-name">同人文</div>
+          </div>
+          <div class="app-item" data-app="intimate" onclick="openApp('intimate')">
+            <div class="app-icon">♡</div>
+            <div class="app-name">亲密时刻</div>
+          </div>
+        </div>
+
+        <!-- 拍立得（两张重叠） -->
+        <div class="polaroid-wrap" id="polaroid-wrap">
+          <div class="polaroid polaroid-0" id="polaroid-0" data-key="polaroid-0">
+            <div class="pol-placeholder">✦</div>
+          </div>
+          <div class="polaroid polaroid-1" id="polaroid-1" data-key="polaroid-1">
+            <div class="pol-placeholder">✧</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 第三页 ===== -->
+    <div class="page" id="page3">
+      <!-- 顶部：心情卡片(左) + 便签(右) 并排 -->
+      <div class="p3-top-row">
+        <div class="p3-card glass p3-mood">
+          <div class="p3-card-title">✧ 今日角色心情</div>
+          <div class="mood-content" id="p3-mood-text">
+            <span class="silver-text" style="font-size:11px;">选择一个角色来查看心情</span>
+          </div>
+          <div class="mood-actions">
+            <button id="p3-mood-select">选择角色</button>
+            <button id="p3-mood-refresh">↺</button>
+          </div>
+        </div>
+        <div class="p3-card glass p3-note">
+          <div class="p3-card-title">📌 便签</div>
+          <textarea id="p3-note-area" placeholder="写点什么…"></textarea>
+          <div class="note-actions">
+            <button id="p3-note-save">保存</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 倒计时 - 中间 -->
+      <div class="p3-card glass p3-countdown">
+        <div class="p3-card-title">⏱ 倒计时</div>
+        <div class="cd-row">
+          <!-- 用户栏 -->
+          <div class="cd-col glass" id="cd-user-col">
+            <div class="cd-avatar" id="cd-user-avatar">
+              <span style="font-size:14px;color:var(--txt-light);">𖥦</span>
+            </div>
+            <input type="text" placeholder="目标名称" id="cd-user-name" style="width:100%;text-align:center;font-size:11px;background:transparent;color:var(--txt-pri);margin-bottom:3px;">
+            <input type="datetime-local" id="cd-user-date" style="width:100%;font-size:10px;background:transparent;color:var(--txt-sec);text-align:center;">
+            <div class="cd-time" id="cd-user-time">--</div>
+            <div class="cd-btn" id="cd-user-btn">꙳</div>
+          </div>
+          <!-- 角色栏 -->
+          <div class="cd-col glass" id="cd-char-col">
+            <div class="cd-avatar" id="cd-char-avatar">
+              <span style="font-size:14px;color:var(--txt-light);">✧</span>
+            </div>
+            <div class="cd-target" id="cd-char-name">等待生成</div>
+            <div class="cd-time" id="cd-char-time">--</div>
+            <div style="display:flex;gap:6px;justify-content:center;margin-top:6px;">
+              <div class="cd-btn" id="cd-char-btn">꙳</div>
+              <div class="cd-btn" id="cd-char-share">↖</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 监视App -->
+      <div class="p3-monitor">
+        <div class="app-item" data-app="monitor" onclick="openApp('monitor')">
+          <div class="app-icon">☍</div>
+          <div class="app-name">监视</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- pages-wrap -->
+
+  <!-- 页面指示器 -->
+  <div id="page-dots">
+    <div class="dot active" data-page="0"></div>
+    <div class="dot" data-page="1"></div>
+    <div class="dot" data-page="2"></div>
+  </div>
+</div><!-- desktop -->
+
+<!-- 底部 Dock -->
+<div id="dock">
+  <div class="dock-item" onclick="openApp('chat')">
+    <div class="dock-icon">❝</div>
+    <div class="dock-label">聊天</div>
+  </div>
+  <div class="dock-item" onclick="openApp('settings')">
+    <div class="dock-icon">☼</div>
+    <div class="dock-label">设置</div>
+  </div>
+  <div class="dock-item" onclick="openApp('worldbook')">
+    <div class="dock-icon">◉</div>
+    <div class="dock-label">世界书</div>
+  </div>
+</div>
+
+<!-- 通用弹窗 -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box glass-strong">
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-msg" id="modal-msg"></div>
+    <div class="modal-btns" id="modal-btns"></div>
+  </div>
+</div>
+
+<!-- 图片上传弹窗 -->
+<div class="modal-overlay" id="upload-modal">
+  <div class="modal-box glass-strong upload-modal">
+    <div class="modal-title">设置图片</div>
+    <div class="upload-opts">
+      <button id="upload-local-btn">从本地选择</button>
+      <button id="upload-url-btn">输入URL链接</button>
+    </div>
+    <input type="text" id="upload-url-input" placeholder="粘贴图片链接…" class="hidden">
+    <div class="modal-btns">
+      <button class="mbtn mbtn-cancel" onclick="closeUploadModal()">取消</button>
+      <button class="mbtn mbtn-confirm hidden" id="upload-url-confirm" onclick="confirmUrlUpload()">确认</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file-picker" accept="image/*" style="display:none;">
+
+
+<script>
+// 杀掉 Service Worker + 清缓存
+(function(){
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      regs.forEach(function(r){ r.unregister(); });
+    });
+  }
+  if('caches' in window){
+    caches.keys().then(function(keys){
+      keys.forEach(function(k){ caches.delete(k); });
+    });
+  }
+
+  // 5秒兜底防黑屏
+  setTimeout(function(){
+    var sp=document.getElementById('splash');
+    var de=document.getElementById('desktop');
+    if(sp) sp.style.display='none';
+    if(de) de.classList.add('show');
+  }, 5000);
+})();
+</script>
+
+<script src="script.js?v=fix0311b"></script>
+<script src="bugfix.js?v=fix0311b"></script>
+
+
+</body>
+</html>
