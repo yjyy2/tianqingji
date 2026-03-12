@@ -667,12 +667,13 @@
   // 1. CSS 修复顶部缝隙和头像溢出，绝对安全
   const st = document.createElement('style');
   st.textContent = `
-    /* 消除页面顶部的空白缝隙，让毛玻璃完美贴合顶部 */
+        /* 消除页面顶部的空白缝隙，整体上移，不再强行拉伸变胖 */
     .app-page, #app-chat {
       padding-top: 0 !important;
+      margin-top: 0 !important;
     }
     .chat-topbar, .app-header {
-      padding-top: calc(env(safe-area-inset-top, 0px) + 12px) !important;
+      padding-top: 12px !important; /* 恢复它原本精致的高级大小 */
     }
     
     /* 强制头像图片在圆框内，防旧浏览器溢出 */
