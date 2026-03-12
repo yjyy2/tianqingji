@@ -725,30 +725,31 @@
   }
 })();
 
-// ===== [完美收官补丁2：选项卡移到底部] =====
+// ===== [完美收官补丁2：选项卡移到底部 完美贴底版] =====
 (function moveTabsToBottom(){
   const st = document.createElement('style');
   st.textContent = `
-    /* 让聊天页的三大块重新排队：顶栏第1，内容第2，选项卡跑到第3（最底下） */
+    /* 彻底去掉页面底部的“防撞垫”空隙，让它能够完全触底 */
     #app-chat {
       display: flex !important;
       flex-direction: column !important;
+      padding-bottom: 0 !important; 
     }
     #app-chat .chat-topbar { 
       order: 1 !important; 
     }
     #app-chat .chat-tab-content { 
       order: 2 !important; 
-      flex: 1 !important; /* 内容区占满中间所有空间 */
+      flex: 1 !important; 
     }
     
     /* 底部选项卡的美颜和适配 */
     #app-chat .chat-tabs { 
       order: 3 !important; 
-      border-bottom: none !important; /* 去掉以前的下边框 */
-      border-top: 1px solid rgba(255,255,255,0.3) !important; /* 加上高级的上边框 */
+      border-bottom: none !important; 
+      border-top: 1px solid rgba(255,255,255,0.3) !important; 
       padding-top: 8px !important;
-      /* 核心：自动识别苹果底部白条，给它留出安全距离，完美贴合！ */
+      /* 核心：用毛玻璃内部的边距来吃掉 iOS 白条的高度，完美延伸无死角！ */
       padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
       box-shadow: 0 -2px 16px rgba(0,0,0,0.04) !important;
       flex-shrink: 0 !important;
