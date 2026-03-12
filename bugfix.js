@@ -605,3 +605,59 @@
 
 })();
 
+// ===== [终极安全版] iOS 专属修复：防白条 + 防Emoji =====
+(function fixIOS(){
+  // 1. 纯 CSS 解决底部白条和 Emoji，绝对不会引起卡死
+  const st = document.createElement('style');
+  st.textContent = `
+    /* 强制网页占满全屏，背景涂黑，防止出现白底 */
+    html, body {
+      height: 100% !important;
+      height: -webkit-fill-available !important;
+      height: 100dvh !important;
+      background-color: #000000 !important;
+      overscroll-behavior-y: none; /* 防止上下拉出现白底缝隙 */
+    }
+    
+    /* 壁纸层强制拉伸到底部 */
+    #tq-wp-layer, #wallpaper, #desktop {
+      height: 100% !important;
+      height: -webkit-fill-available !important;
+      height: 100dvh !important;
+      top: 0 !important; 
+      bottom: 0 !important;
+    }
+    
+    /* 让底部的 Dock 栏稍微往上抬一点，避开苹果的那根横线 */
+    #dock {
+      margin-bottom: env(safe-area-inset-bottom, 8px) !important;
+    }
+    
+    /* 页面内容区底部留出安全距离 */
+    .page {
+      padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    /* 强制图标显示为单色文本，拒绝苹果彩色 Emoji！ */
+    .app-icon, .dock-icon {
+      font-family: "Apple Symbols", "Arial Unicode MS", "Segoe UI Symbol", sans-serif !important;
+      font-variant-emoji: text !important;
+    }
+  `;
+  document.head.appendChild(st);
+
+  // 2. 针对苹果里最顽固的几个图标（比如红心和邮件），贴上“纯文本符”
+  // 只在页面加载时执行一次，没有死循环，非常安全！
+  setTimeout(function(){
+    document.querySelectorAll('.app-icon, .dock-icon').forEach(el => {
+      // 如果里面只有文字没有图片
+      if(el.children.length === 0 && el.textContent) { 
+        let txt = el.textContent.trim();
+        // 遇到这些容易变彩色的符号，强行加上 \uFE0E (文本显示指令)
+        if(['❣', '❤', '✉', '☾', '♪', '☼', '❝'].includes(txt)) {
+           el.textContent = txt + '\uFE0E';
+        }
+      }
+    });
+  }, 800);
+})();
