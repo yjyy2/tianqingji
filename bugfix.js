@@ -682,3 +682,835 @@
 })();
 
       
+/* =========================
+   [PATCH-013] 聊天页稳定合并版
+   覆盖功能：
+   1) 搜索栏收起为右上角搜索键（在 + 左边）
+   2) 搜索联系人 + 所有聊天记录
+   3) 未读红点移到头像外右上角完整显示
+   4) 右滑增加“置顶 + 删除”，仅左滑 open 时显示
+   5) 多置顶按先后顺序；后置顶排在置顶区更下面
+   6) 置顶颜色浅一点
+   7) 顶部标题强制居中
+   8) 长按聊天项清空聊天记录
+   9) 设置新增“美化”折叠：聊天主页壁纸 + 单聊壁纸（单聊优先）
+  10) 聊天主页毛玻璃效果
+========================= */
+(function(){
+  if(window.__TQ_PATCH_013__) return;
+  window.__TQ_PATCH_013__ = 1;
+
+  const $ = s => document.querySelector(s);
+  const $$ = s => document.querySelectorAll(s);
+
+  function g(k,d){
+    try{
+      if(typeof lsGet==='function') return lsGet(k,d);
+      const v=localStorage.getItem(k);
+      return v ? JSON.parse(v) : d;
+    }catch(e){ return d; }
+  }
+  function s(k,v){
+    try{
+      if(typeof lsSet==='function') return lsSet(k,v);
+      localStorage.setItem(k,JSON.stringify(v));
+    }catch(e){}
+  }
+  function del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+  function toast(msg){ if(typeof showToast==='function') showToast(msg); }
+  function esc(v){
+    return String(v||'')
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+
+  // ---------- 样式 ----------
+  (function injectCss(){
+    if($('#tq-patch-013-style')) return;
+    const st=document.createElement('style');
+    st.id='tq-patch-013-style';
+    st.textContent=`
+      /* 顶栏 */
+      #app-chat .chat-topbar{
+        position:relative !important;
+        display:flex !important;
+        align-items:center !important;
+        justify-content:space-between !important;
+        flex-shrink:0 !important;
+      }
+      #app-chat .chat-topbar .ct-title{
+        position:absolute !important;
+        left:50% !important;
+        transform:translateX(-50%) !important;
+        width:auto !important;
+        max-width:58%;
+        text-align:center !important;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        pointer-events:none;
+        z-index:1;
+      }
+      #app-chat .chat-topbar .ct-back{
+        min-width:44px;
+        position:relative;
+        z-index:2;
+      }
+      .chat-top-actions{
+        min-width:84px;
+        display:flex;
+        align-items:center;
+        justify-content:flex-end;
+        position:relative;
+        z-index:2;
+      }
+      .chat-top-actions .ct-act{
+        font-size:20px;
+        color:var(--txt-sec);
+        cursor:pointer;
+        padding:4px 8px;
+        line-height:1;
+        user-select:none;
+      }
+      .chat-top-actions .ct-act:active{transform:scale(0.88);}
+      body.dark-mode .chat-top-actions .ct-act{color:#999;}
+
+      /* 聊天页布局兜底（避免半屏） */
+      #app-chat{
+        display:flex !important;
+        flex-direction:column !important;
+        min-height:0 !important;
+        overflow:hidden !important;
+      }
+      #app-chat .chat-tabs{flex-shrink:0 !important;}
+      #app-chat .chat-tab-content{
+        flex:1 !important;
+        min-height:0 !important;
+        overflow:hidden !important;
+        display:block !important;
+      }
+      #app-chat .chat-tab-panel{
+        display:none !important;
+        height:100% !important;
+        overflow-y:auto !important;
+        -webkit-overflow-scrolling:touch;
+      }
+      #app-chat .chat-tab-panel.active{
+        display:block !important;
+      }
+
+      /* 搜索栏折叠 */
+      .msg-search-wrap{
+        transition:max-height .22s ease,opacity .2s ease,padding .2s ease;
+        max-height:56px;
+        opacity:1;
+        overflow:hidden;
+      }
+      .msg-search-wrap.collapsed{
+        max-height:0 !important;
+        opacity:0 !important;
+        padding-top:0 !important;
+        padding-bottom:0 !important;
+        pointer-events:none;
+      }
+
+      /* 红点外置 */
+      .msg-item-avatar{
+        position:relative;
+        overflow:visible !important;
+      }
+      .msg-badge{
+        top:-6px !important;
+        right:-6px !important;
+        z-index:9 !important;
+        border:2px solid #fff;
+        box-shadow:0 1px 4px rgba(0,0,0,.12);
+      }
+      body.dark-mode .msg-badge{
+        border-color:#1a1a1a;
+      }
+
+      /* 右滑动作区 */
+      .msg-item-wrap{
+        position:relative;
+        overflow:hidden !important;
+      }
+      .msg-actions{
+        position:absolute;
+        right:0;
+        top:0;
+        height:100%;
+        width:140px;
+        display:flex;
+        z-index:1;
+        opacity:0 !important;
+        pointer-events:none !important;
+        transition:opacity .12s ease;
+      }
+      .msg-item-wrap.open .msg-actions{
+        opacity:1 !important;
+        pointer-events:auto !important;
+      }
+      .msg-act{
+        width:70px;
+        height:100%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        color:#fff;
+        font-size:13px;
+        letter-spacing:1px;
+        user-select:none;
+      }
+      .msg-act.pin{background:#9aabb8;}
+      .msg-act.del{background:#e07070;}
+
+      .msg-item{
+        position:relative;
+        z-index:2;
+        transition:transform .2s ease !important;
+      }
+      .msg-item-wrap:not(.open) .msg-item{
+        transform:translateX(0) !important;
+      }
+      .msg-item-wrap.open .msg-item{
+        transform:translateX(-140px) !important;
+      }
+
+      /* 置顶颜色浅一点 */
+      .msg-item.pinned{
+        background:rgba(154,171,184,0.09) !important;
+      }
+      body.dark-mode .msg-item.pinned{
+        background:rgba(154,171,184,0.13) !important;
+      }
+
+      /* 聊天主页壁纸毛玻璃 */
+      #app-chat.has-chat-home-bg{
+        background-image:var(--chat-home-bg, none) !important;
+        background-size:cover !important;
+        background-position:center !important;
+        background-repeat:no-repeat !important;
+      }
+      #app-chat.has-chat-home-bg .chat-topbar,
+      #app-chat.has-chat-home-bg .chat-tabs{
+        background:rgba(255,255,255,.20) !important;
+        backdrop-filter:blur(18px);
+        -webkit-backdrop-filter:blur(18px);
+        border-color:rgba(255,255,255,.35) !important;
+      }
+      #app-chat.has-chat-home-bg .msg-item{
+        background:rgba(255,255,255,.22) !important;
+        backdrop-filter:blur(14px);
+        -webkit-backdrop-filter:blur(14px);
+        border:1px solid rgba(255,255,255,.30);
+      }
+      body.dark-mode #app-chat.has-chat-home-bg .chat-topbar,
+      body.dark-mode #app-chat.has-chat-home-bg .chat-tabs{
+        background:rgba(0,0,0,.28) !important;
+        border-color:rgba(255,255,255,.12) !important;
+      }
+      body.dark-mode #app-chat.has-chat-home-bg .msg-item{
+        background:rgba(0,0,0,.28) !important;
+        border-color:rgba(255,255,255,.12);
+      }
+
+      /* 单聊背景 */
+      #chat-detail.has-chat-detail-bg{
+        background-image:var(--chat-detail-bg, none) !important;
+        background-size:cover !important;
+        background-position:center !important;
+        background-repeat:no-repeat !important;
+      }
+
+      /* 设置图标兜底 */
+      #dock .dock-item:nth-child(2) .dock-icon:empty::before{
+        content:"☼";
+      }
+    `;
+    document.head.appendChild(st);
+  })();
+
+  // ---------- 聊天tab切换重绑 ----------
+  function bindTabs(){
+    const tabs=[...$$('#app-chat .chat-tab')];
+    const panels=[...$$('#app-chat .chat-tab-panel')];
+    if(!tabs.length || !panels.length) return false;
+
+    const titleEl=$('#app-chat .ct-title');
+    const map={messages:'消息',contacts:'联系人',moments:'朋友圈',profile:'我'};
+
+    tabs.forEach(tab=>{
+      tab.onclick=function(){
+        const target=tab.dataset.tab;
+        tabs.forEach(t=>t.classList.remove('active'));
+        tab.classList.add('active');
+        panels.forEach(p=>p.classList.remove('active'));
+        const panel=$('#tab-'+target);
+        if(panel) panel.classList.add('active');
+        if(titleEl) titleEl.textContent=map[target]||'消息';
+      };
+    });
+
+    // 保底激活
+    let active=tabs.find(t=>t.classList.contains('active')) || tabs[0];
+    tabs.forEach(t=>t.classList.remove('active'));
+    active.classList.add('active');
+    panels.forEach(p=>p.classList.remove('active'));
+    const p=$('#tab-'+active.dataset.tab);
+    if(p) p.classList.add('active');
+    if(titleEl) titleEl.textContent=map[active.dataset.tab]||'消息';
+    return true;
+  }
+
+  // ---------- 搜索键化 ----------
+  function initSearchToggle(){
+    const plus=$('#chat-new-btn');
+    const wrap=$('#tab-messages .msg-search-wrap');
+    const oldInput=$('#msg-search');
+    if(!plus || !wrap || !oldInput) return false;
+
+    if(!$('#chat-top-actions-holder')){
+      const holder=document.createElement('div');
+      holder.id='chat-top-actions-holder';
+      holder.className='chat-top-actions';
+
+      plus.parentNode.insertBefore(holder, plus);
+      const searchBtn=document.createElement('span');
+      searchBtn.id='chat-search-toggle';
+      searchBtn.className='ct-act';
+      searchBtn.textContent='⌕';
+
+      holder.appendChild(searchBtn);
+      holder.appendChild(plus);
+      plus.classList.add('ct-act');
+    }
+
+    // 去掉旧监听（克隆输入框）
+    let input=$('#msg-search');
+    if(input && !input.dataset.p13Bound){
+      const neo=input.cloneNode(true);
+      input.parentNode.replaceChild(neo,input);
+      input=neo;
+      input.dataset.p13Bound='1';
+      input.addEventListener('input',()=>{
+        window.__chat013_kw=input.value.trim();
+        window.renderMsgList();
+      });
+    }
+
+    if(!wrap.dataset.p13Inited){
+      wrap.classList.add('collapsed');
+      wrap.dataset.p13Inited='1';
+    }
+
+    const btn=$('#chat-search-toggle');
+    if(btn && !btn.dataset.p13Bound){
+      btn.dataset.p13Bound='1';
+      btn.onclick=function(e){
+        e.stopPropagation();
+        const isClosed=wrap.classList.contains('collapsed');
+        if(isClosed){
+          wrap.classList.remove('collapsed');
+          const i=$('#msg-search');
+          if(i) setTimeout(()=>i.focus(),30);
+        }else{
+          wrap.classList.add('collapsed');
+          const i2=$('#msg-search');
+          if(i2){
+            i2.value='';
+            window.__chat013_kw='';
+            window.renderMsgList();
+          }
+        }
+      };
+    }
+    return true;
+  }
+
+  // ---------- 聊天列表渲染 ----------
+  function pinsGet(){ return g('tq_chat_pinned',[]); }
+  function pinsSet(v){ s('tq_chat_pinned',v); }
+
+  function normalizePins(contacts){
+    const ids=new Set(contacts.map(c=>c.id));
+    let pins=pinsGet().filter((id,idx,arr)=>id && ids.has(id) && arr.indexOf(id)===idx);
+    pinsSet(pins);
+    return pins;
+  }
+
+  function getLast(cid){
+    const msgs=g('tq_msgs_'+cid,[]);
+    return msgs.length?msgs[msgs.length-1]:null;
+  }
+
+  function getUnread(cid){
+    const msgs=g('tq_msgs_'+cid,[]);
+    let n=0;
+    for(let i=msgs.length-1;i>=0;i--){
+      if(msgs[i].role==='char' && msgs[i].read===false) n++;
+      else break;
+    }
+    return n;
+  }
+
+  function fmtTime(ts){
+    if(!ts) return '';
+    const d=new Date(ts), now=new Date();
+    const diff=now-d;
+    if(diff<60000) return '刚刚';
+    if(diff<3600000) return Math.floor(diff/60000)+'分钟前';
+    if(d.toDateString()===now.toDateString()){
+      return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    }
+    const y=new Date(now); y.setDate(y.getDate()-1);
+    if(d.toDateString()===y.toDateString()) return '昨天';
+    return (d.getMonth()+1)+'/'+d.getDate();
+  }
+
+  function setOpen(wrap,open){
+    const row=wrap.querySelector('.msg-item');
+    if(!row) return;
+    if(open){
+      wrap.classList.add('open');
+      row.style.transform='translateX(-140px)';
+    }else{
+      wrap.classList.remove('open');
+      row.style.transform='translateX(0)';
+    }
+  }
+
+  function closeAllOpen(except){
+    $$('.msg-item-wrap.open').forEach(w=>{
+      if(w!==except) setOpen(w,false);
+    });
+  }
+
+  function renderSearch(kw){
+    const q=String(kw||'').trim().toLowerCase();
+    const contacts=g('tq_contacts',[]);
+    const container=$('#msg-list');
+    const empty=$('#msg-empty');
+    if(!container || !empty) return;
+
+    const result=[];
+    contacts.forEach(c=>{
+      const nameHit=(c.name||'').toLowerCase().includes(q)
+        || (c.remark||'').toLowerCase().includes(q)
+        || (c.nickname||'').toLowerCase().includes(q);
+      const msgs=g('tq_msgs_'+c.id,[]);
+      const hitMsgs=msgs.filter(m=>String(m.text||'').toLowerCase().includes(q));
+
+      if(nameHit || hitMsgs.length){
+        result.push({
+          c,
+          count:hitMsgs.length,
+          preview:hitMsgs.length?hitMsgs[hitMsgs.length-1].text.slice(0,40):'联系人匹配'
+        });
+      }
+    });
+
+    empty.style.display='none';
+    if(!result.length){
+      container.innerHTML='<div class="chat-empty" style="min-height:150px;"><div class="ce-icon">⌕</div><div>未找到相关结果</div></div>';
+      return;
+    }
+
+    container.innerHTML='';
+    result.forEach(r=>{
+      const c=r.c;
+      const av=c.avatar
+        ? `<img src="${esc(c.avatar)}" alt="">`
+        : `<span class="mi-ph">${esc((c.name||'?').charAt(0))}</span>`;
+
+      const row=document.createElement('div');
+      row.className='msg-item';
+      row.innerHTML=`
+        <div class="msg-item-avatar">${av}</div>
+        <div class="msg-item-body">
+          <div class="msg-item-top"><div class="msg-item-name">${esc(c.remark||c.name||'未命名')}</div></div>
+          <div class="msg-item-preview">${esc(r.preview)}${r.count?('（命中'+r.count+'条）'):''}</div>
+        </div>
+      `;
+      row.addEventListener('click',()=>{ if(typeof openChatDetail==='function') openChatDetail(c.id); });
+      container.appendChild(row);
+    });
+  }
+
+  function renderNormal(){
+    const contacts=g('tq_contacts',[]);
+    const container=$('#msg-list');
+    const empty=$('#msg-empty');
+    if(!container || !empty) return;
+
+    if(!contacts.length){
+      empty.style.display='';
+      container.innerHTML='';
+      return;
+    }
+
+    const pins=normalizePins(contacts);
+
+    const list=contacts.map(c=>{
+      const last=getLast(c.id);
+      return {
+        c,
+        last,
+        unread:getUnread(c.id),
+        sortTime:last?last.time:(c.createdAt||0),
+        pinIdx:pins.indexOf(c.id)
+      };
+    });
+
+    list.sort((a,b)=>{
+      const ap=a.pinIdx>-1, bp=b.pinIdx>-1;
+      if(ap && bp) return a.pinIdx-b.pinIdx; // 置顶按先后
+      if(ap && !bp) return -1;
+      if(!ap && bp) return 1;
+      return b.sortTime-a.sortTime; // 非置顶按最新
+    });
+
+    empty.style.display='none';
+    container.innerHTML='';
+
+    list.forEach(item=>{
+      const c=item.c;
+      const pinned=item.pinIdx>-1;
+      const av=c.avatar
+        ? `<img src="${esc(c.avatar)}" alt="">`
+        : `<span class="mi-ph">${esc((c.name||'?').charAt(0))}</span>`;
+      const badge=item.unread>0?`<div class="msg-badge">${item.unread}</div>`:'';
+      const preview=item.last
+        ? esc((item.last.role==='user'?'我：':'')+String(item.last.text||'').slice(0,30))
+        : '点击开始聊天';
+
+      const wrap=document.createElement('div');
+      wrap.className='msg-item-wrap';
+
+      const actions=document.createElement('div');
+      actions.className='msg-actions';
+      actions.innerHTML=`
+        <div class="msg-act pin">${pinned?'取消':'置顶'}</div>
+        <div class="msg-act del">删除</div>
+      `;
+      wrap.appendChild(actions);
+
+      const row=document.createElement('div');
+      row.className='msg-item'+(pinned?' pinned':'');
+      row.innerHTML=`
+        <div class="msg-item-avatar">${av}${badge}</div>
+        <div class="msg-item-body">
+          <div class="msg-item-top">
+            <div class="msg-item-name">${esc(c.remark||c.name||'未命名')}</div>
+            <div class="msg-item-time">${item.last?fmtTime(item.last.time):''}</div>
+          </div>
+          <div class="msg-item-preview">${preview}</div>
+        </div>
+      `;
+      wrap.appendChild(row);
+
+      // 手势：左滑 + 长按清空
+      let sx=0, sy=0, dx=0, sw=false;
+      let longTimer=null, longTriggered=false;
+
+      row.addEventListener('touchstart',e=>{
+        closeAllOpen(wrap);
+        const t=e.touches[0];
+        sx=t.clientX; sy=t.clientY;
+        dx=0; sw=false;
+        longTriggered=false;
+
+        longTimer=setTimeout(()=>{
+          longTriggered=true;
+          if(typeof showModal==='function'){
+            showModal('清空聊天记录','确定清空与「'+(c.remark||c.name)+'」的聊天记录？',[
+              {text:'取消',type:'cancel'},
+              {text:'清空',type:'confirm',cb:()=>{
+                del('tq_msgs_'+c.id);
+                window.renderMsgList();
+                toast('已清空');
+              }}
+            ]);
+          }
+        },600);
+      },{passive:true});
+
+      row.addEventListener('touchmove',e=>{
+        const t=e.touches[0];
+        const mx=t.clientX-sx;
+        const my=t.clientY-sy;
+
+        if(Math.abs(mx)>10 || Math.abs(my)>10){
+          if(longTimer){ clearTimeout(longTimer); longTimer=null; }
+        }
+
+        if(Math.abs(mx)>Math.abs(my) && mx<-18){
+          sw=true;
+          dx=Math.max(mx,-140);
+          row.style.transform='translateX('+dx+'px)';
+        }
+      },{passive:true});
+
+      row.addEventListener('touchend',()=>{
+        if(longTimer){ clearTimeout(longTimer); longTimer=null; }
+        if(longTriggered){ longTriggered=false; return; }
+
+        if(sw){
+          if(dx<-85) setOpen(wrap,true);
+          else setOpen(wrap,false);
+        }else{
+          if(wrap.classList.contains('open')){
+            setOpen(wrap,false);
+          }else{
+            if(typeof openChatDetail==='function') openChatDetail(c.id);
+          }
+        }
+      },{passive:true});
+
+      // 置顶
+      actions.querySelector('.pin').addEventListener('click',e=>{
+        e.stopPropagation();
+        let pins=pinsGet();
+        if(pins.includes(c.id)){
+          pins=pins.filter(x=>x!==c.id);
+          pinsSet(pins);
+          toast('已取消置顶');
+        }else{
+          pins.push(c.id); // 后置顶排在置顶区更下面
+          pinsSet(pins);
+          toast('已置顶');
+        }
+        window.renderMsgList();
+      });
+
+      // 删除
+      actions.querySelector('.del').addEventListener('click',e=>{
+        e.stopPropagation();
+        if(typeof showModal==='function'){
+          showModal('删除聊天','确定删除与「'+(c.remark||c.name)+'」的聊天？',[
+            {text:'取消',type:'cancel'},
+            {text:'删除',type:'confirm',cb:()=>{
+              del('tq_msgs_'+c.id);
+              let pins=pinsGet().filter(x=>x!==c.id);
+              pinsSet(pins);
+              window.renderMsgList();
+              toast('已删除');
+            }}
+          ]);
+        }
+      });
+
+      container.appendChild(wrap);
+    });
+  }
+
+  window.renderMsgList=function(){
+    const kw=String(window.__chat013_kw||'').trim();
+    if(kw) renderSearch(kw);
+    else renderNormal();
+  };
+
+  // 点击空白收起滑动
+  if(!window.__TQ_PATCH_013_OUTSIDE__){
+    window.__TQ_PATCH_013_OUTSIDE__=1;
+    document.addEventListener('touchstart',e=>{
+      if(!e.target.closest('.msg-item-wrap')){
+        closeAllOpen(null);
+      }
+    },{passive:true});
+  }
+
+  // ---------- 设置“美化” ----------
+  const HOME_KEY='tq_chat_home_bg';
+  const DETAIL_KEY_PREFIX='tq_chat_detail_bg_';
+
+  function applyChatHomeBg(){
+    const app=$('#app-chat');
+    if(!app) return;
+    const src=g(HOME_KEY,null);
+    if(src){
+      app.style.setProperty('--chat-home-bg','url("'+String(src).replace(/"/g,'%22')+'")');
+      app.classList.add('has-chat-home-bg');
+    }else{
+      app.style.setProperty('--chat-home-bg','none');
+      app.classList.remove('has-chat-home-bg');
+    }
+  }
+
+  function applyChatDetailBg(cid){
+    const page=$('#chat-detail');
+    if(!page || !cid) return;
+    const detail=g(DETAIL_KEY_PREFIX+cid,null);
+    const home=g(HOME_KEY,null);
+    const src=detail || home || null; // 单聊优先
+    if(src){
+      page.style.setProperty('--chat-detail-bg','url("'+String(src).replace(/"/g,'%22')+'")');
+      page.classList.add('has-chat-detail-bg');
+    }else{
+      page.style.setProperty('--chat-detail-bg','none');
+      page.classList.remove('has-chat-detail-bg');
+    }
+  }
+
+  function refreshBeautifyPreview(){
+    const el=$('#set-chat-home-preview');
+    if(!el) return;
+    const src=g(HOME_KEY,null);
+    if(src) el.innerHTML='<img src="'+src+'" alt="">';
+    else el.innerHTML='<span style="font-size:12px;color:var(--txt-light);">点击下方按钮设置</span>';
+  }
+
+  function injectBeautifyGroup(){
+    const body=$('#app-settings .set-body');
+    if(!body || $('#sg-beautify')) return false;
+
+    body.insertAdjacentHTML('beforeend',`
+      <div class="set-group" id="sg-beautify">
+        <div class="set-group-header" onclick="toggleSetGroup('sg-beautify')">
+          <span class="sg-title">美化</span>
+          <span class="sg-arrow">▾</span>
+        </div>
+        <div class="set-group-body">
+          <div class="set-group-content">
+            <div class="set-label">聊天主页壁纸（聊天列表页）</div>
+            <div class="set-wp-preview" id="set-chat-home-preview">
+              <span style="font-size:12px;color:var(--txt-light);">点击下方按钮设置</span>
+            </div>
+            <div class="set-btn-row">
+              <button class="set-btn set-btn-sec" onclick="pickChatHomeBg()">选择图片</button>
+              <button class="set-btn set-btn-sec" onclick="clearChatHomeBg()">清除</button>
+            </div>
+            <div style="font-size:10px;color:var(--txt-sec);line-height:1.6;margin-top:8px;">
+              单聊壁纸在聊天页右上角（☰）设置。<br>
+              优先级：单聊壁纸 > 聊天主页壁纸
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
+    refreshBeautifyPreview();
+    return true;
+  }
+
+  window.pickChatHomeBg=function(){
+    if(typeof openUploadModal!=='function') return;
+    openUploadModal('chat_home_bg',(k,src)=>{
+      s(HOME_KEY,src);
+      applyChatHomeBg();
+      refreshBeautifyPreview();
+      toast('聊天主页壁纸已设置');
+    });
+  };
+  window.clearChatHomeBg=function(){
+    del(HOME_KEY);
+    applyChatHomeBg();
+    refreshBeautifyPreview();
+    toast('聊天主页壁纸已清除');
+  };
+
+  // 聊天右上角菜单改为美化菜单
+  window.openChatSettings=function(){
+    const cid=window._cdChatId;
+    if(!cid){ toast('请先进入聊天'); return; }
+
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.22);display:flex;align-items:flex-end;justify-content:center;';
+    ov.innerHTML=`
+      <div style="width:100%;max-width:520px;background:rgba(255,255,255,.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+                  border-radius:18px 18px 0 0;padding:12px 12px calc(env(safe-area-inset-bottom,0px) + 12px);">
+        <div style="text-align:center;font-size:13px;color:#666;padding:8px 0 10px;">聊天美化</div>
+        <button id="p13-set-detail" style="width:100%;padding:12px;border-radius:12px;margin-bottom:8px;background:#f3f1ee;">设置当前聊天壁纸</button>
+        <button id="p13-clear-detail" style="width:100%;padding:12px;border-radius:12px;margin-bottom:8px;background:#f3f1ee;">清除当前聊天壁纸</button>
+        <button id="p13-set-home" style="width:100%;padding:12px;border-radius:12px;margin-bottom:8px;background:#f3f1ee;">设置聊天主页壁纸</button>
+        <button id="p13-clear-home" style="width:100%;padding:12px;border-radius:12px;margin-bottom:8px;background:#f3f1ee;">清除聊天主页壁纸</button>
+        <button id="p13-cancel" style="width:100%;padding:12px;border-radius:12px;background:#e9e9e9;">取消</button>
+      </div>
+    `;
+    document.body.appendChild(ov);
+
+    const close=()=>ov.remove();
+    ov.addEventListener('click',e=>{ if(e.target===ov) close(); });
+
+    ov.querySelector('#p13-set-detail').onclick=function(){
+      close();
+      openUploadModal('chat_detail_bg_'+cid,(k,src)=>{
+        s(DETAIL_KEY_PREFIX+cid,src);
+        applyChatDetailBg(cid);
+        toast('当前聊天壁纸已设置');
+      });
+    };
+    ov.querySelector('#p13-clear-detail').onclick=function(){
+      del(DETAIL_KEY_PREFIX+cid);
+      applyChatDetailBg(cid);
+      close();
+      toast('当前聊天壁纸已清除');
+    };
+    ov.querySelector('#p13-set-home').onclick=function(){ close(); window.pickChatHomeBg(); };
+    ov.querySelector('#p13-clear-home').onclick=function(){ close(); window.clearChatHomeBg(); };
+    ov.querySelector('#p13-cancel').onclick=close;
+  };
+
+  // 包装 openChatDetail / openApp
+  if(typeof window.openChatDetail==='function' && !window.__P13_WRAP_DETAIL__){
+    window.__P13_WRAP_DETAIL__=1;
+    const old=window.openChatDetail;
+    window.openChatDetail=function(cid){
+      old(cid);
+      setTimeout(()=>applyChatDetailBg(cid),60);
+    };
+  }
+  if(typeof window.openApp==='function' && !window.__P13_WRAP_OPENAPP__){
+    window.__P13_WRAP_OPENAPP__=1;
+    const oldOpen=window.openApp;
+    window.openApp=function(name){
+      oldOpen(name);
+      if(name==='chat') setTimeout(applyChatHomeBg,60);
+    };
+  }
+
+  // ---------- 初始化 ----------
+  function ensureSettingsIcon(){
+    const docks=$$('#dock .dock-item');
+    if(!docks || docks.length<2) return;
+    const icon=docks[1].querySelector('.dock-icon');
+    if(!icon) return;
+    if(!icon.querySelector('img') && !(icon.textContent||'').trim()){
+      icon.textContent='☼';
+    }
+  }
+
+  function boot(){
+    bindTabs();
+    initSearchToggle();
+    injectBeautifyGroup();
+    applyChatHomeBg();
+    if(window._cdChatId) applyChatDetailBg(window._cdChatId);
+    ensureSettingsIcon();
+    if(typeof window.renderMsgList==='function') window.renderMsgList();
+  }
+
+  function waitReady(){
+    const ok = $('#app-chat') && $('#tab-messages') && $('#msg-list') && $('#chat-new-btn');
+    if(ok){ boot(); return; }
+    setTimeout(waitReady,180);
+  }
+  waitReady();
+
+  const mo=new MutationObserver(()=>{
+    bindTabs();
+    initSearchToggle();
+    injectBeautifyGroup();
+    ensureSettingsIcon();
+  });
+  function startObserve(){
+    if(document.body){
+      mo.observe(document.body,{childList:true,subtree:true});
+    }else setTimeout(startObserve,100);
+  }
+  startObserve();
+
+  window.addEventListener('pageshow',boot);
+})();
